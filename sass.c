@@ -9,6 +9,7 @@ PyDoc_STRVAR(sass_module_doc,
 
 typedef struct {
     PyObject_HEAD;
+    // The options are stored directly in the python object
     struct sass_options options;
 } py_sass_options;
 
@@ -173,7 +174,6 @@ sass_context_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
     return (PyObject *)self;
 }
 
-
 static int
 sass_context_init(py_sass_context *self, PyObject *args, PyObject *kwds) 
 {
@@ -268,11 +268,34 @@ sass_context_set_input_string(py_sass_context *self, PyObject *value,
     return 0;
 }
 
+static PyObject *
+sass_context_get_error_message(py_sass_context *self, void *closure)
+{
+    if (!self->context->error_message) {
+        Py_INCREF(Py_None);
+        return Py_None;
+    }
+
+    return PyString_FromString(self->context->error_message);
+}
+
+static PyObject *
+sass_context_get_error_status(py_sass_context *self, void *closure)
+{
+    return PyLong_FromLong(self->context->error_status);
+}
+
 static PyGetSetDef sass_context_getsetters[] = {
-    {"include_paths", 
-     (getter)sass_context_get_input_string, 
+    {"input_string", 
+     (getter)sass_context_get_input_string,
      (setter)sass_context_set_input_string,
      "input string", NULL},
+    {"error_message", 
+     (getter)sass_context_get_error_message, NULL,
+     "error message", NULL},
+    {"error_status", 
+     (getter)sass_context_get_error_status, NULL,
+     "error status", NULL},
     {NULL}  /* Sentinel */
 };
 
@@ -324,7 +347,7 @@ static PyObject *
 sass_compile_string(PyObject *self, PyObject *args)
 {
     PyObject *input;
-    PyObject *options;
+    PyObject *options = NULL;
     struct sass_context *ctx;
     struct sass_context *local_ctx = NULL;
     int retval;
@@ -343,11 +366,22 @@ sass_compile_string(PyObject *self, PyObject *args)
     else {
         if (input->ob_type != &py_sass_context_type) {
             PyErr_SetString(PyExc_TypeError, 
-                            "argument must be a string or of type sass.context");
+                            "input must be a string or a sass.context");
             return NULL;
         }
         py_sass_context *py_ctx = (py_sass_context*)input;
         ctx = py_ctx->context;
+    }
+
+    if (options) {
+        if (options->ob_type != &py_sass_options_type) {
+            PyErr_SetString(PyExc_TypeError, 
+                            "options must be of type sass.options");
+            return NULL;
+        }
+
+        py_sass_options *py_opts = (py_sass_options*)options;
+        ctx->options = py_opts->options;
     }
 
     retval = sass_compile(ctx);
@@ -406,7 +440,7 @@ initsass(void)
         return;
 
     Py_INCREF(&py_sass_options_type);
-    PyModule_AddObject(m, "options", (PyObject *)&py_sass_context_type);
+    PyModule_AddObject(m, "options", (PyObject *)&py_sass_options_type);
 
     if (PyType_Ready(&py_sass_context_type) < 0)
         return;
