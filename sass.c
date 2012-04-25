@@ -61,11 +61,12 @@ static int
 sass_options_set_include_paths(py_sass_options *self, PyObject *value, 
                                void *closure)
 {
-    if (value == NULL) {
-        if (self->options.include_paths) {
-            free(self->options.include_paths);
-        }
+    if (self->options.include_paths) {
+        free(self->options.include_paths);
         self->options.include_paths = NULL;
+    }
+
+    if (value == NULL) {
         return 0;
     }
     
@@ -82,8 +83,6 @@ sass_options_set_include_paths(py_sass_options *self, PyObject *value,
             PyErr_NoMemory();
             return -1;
         }
-        if (self->options.include_paths) 
-            free(self->options.include_paths);
 
         strcpy(self->options.include_paths, PyString_AsString(value));
     }
