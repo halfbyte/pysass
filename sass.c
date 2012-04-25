@@ -5,6 +5,8 @@
 PyDoc_STRVAR(sass_module_doc,
              "sass - document me\n");
 
+// py_sass_options 
+
 typedef struct {
     PyObject_HEAD;
     struct sass_options options;
@@ -105,7 +107,7 @@ static PyGetSetDef sass_options_getsetters[] = {
 };
 
 static PyTypeObject py_sass_options_type = {
-	PyObject_HEAD_INIT(&PyType_Type)
+	PyObject_HEAD_INIT(NULL)
 	0,                              /*ob_size*/
 	"sass.options",                 /*tp_name*/
 	sizeof(py_sass_options_type),   /*tp_basicsize*/
@@ -145,31 +147,221 @@ static PyTypeObject py_sass_options_type = {
     (initproc)sass_options_init,    /* tp_init */
     0,                              /* tp_alloc */
     0,                              /* tp_new */
+};
+
+// py_sass_context
+
+typedef struct {
+    PyObject_HEAD;
+    // sass_context should be created by sass_new_context
+    struct sass_context *context;
+} py_sass_context;
+
+static PyTypeObject py_sass_context_type;
+
+static PyObject *
+sass_context_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
+{
+    py_sass_context *self;
+
+    self = (py_sass_context*)type->tp_alloc(type, 0);
+    if (self != NULL) {
+        self->context = sass_new_context();
+        memset(self->context, 0, sizeof(struct sass_context));
+    }
+
+    return (PyObject *)self;
+}
+
+
+static int
+sass_context_init(py_sass_context *self, PyObject *args, PyObject *kwds) 
+{
+    char* input_string = NULL;
+    PyObject *options = NULL;
+
+    static char *kwlist[] = { "input_string", "options", NULL };
+
+	if (!PyArg_ParseTupleAndKeywords(args, kwds, "|sO:options",
+                                     kwlist, &input_string, &options))
+        return -1;
+
+    const size_t len = input_string ? strlen(input_string) : 0;
+    if (len) { 
+        self->context->input_string = malloc(len + 1);
+        if (!self->context->input_string) {
+            PyErr_NoMemory();
+            return -1;
+        }
+        strcpy(self->context->input_string, input_string);
+    }
+    if (options) {
+        if (options->ob_type != &py_sass_options_type) {
+            PyErr_SetString(PyExc_TypeError, 
+                            "options must be of type sass.options");
+            return -1;
+        }
+        Py_INCREF(&options);
+        py_sass_options *py_opt = (py_sass_options*)options;
+        self->context->options = py_opt->options;
+    }
+
+	return 0;
+}
+
+static void
+sass_context_dealloc(py_sass_context *obj)
+{
+    if (obj->context) {
+        
+        // If there is an input_string, we have set it
+        if (obj->context->input_string) {
+            free(obj->context->input_string);
+        }
+
+        sass_free_context(obj->context);
+    }
+    PyObject_Free(obj);
+}
+
+static PyObject *
+sass_context_get_input_string(py_sass_context *self, void *closure)
+{
+    if (!self->context->input_string) {
+        Py_INCREF(Py_None);
+        return Py_None;
+    }
+
+    return PyString_FromString(self->context->input_string);
+}
+
+static int
+sass_context_set_input_string(py_sass_context *self, PyObject *value, 
+                              void *closure)
+{
+    if (self->context->input_string) {
+        free(self->context->input_string);
+        self->context->input_string = NULL;
+    }
+
+    if (value == NULL) {
+        return 0;
+    }
+    
+    if (!PyString_Check(value)) {
+        PyErr_SetString(PyExc_TypeError, 
+                        "The include_paths attribute value must be a string");
+        return -1;
+    }
+    
+    const Py_ssize_t len = PyString_GET_SIZE(value);
+    if (len) { 
+        self->context->input_string = malloc(len + 1);
+        if (!self->context->input_string) {
+            PyErr_NoMemory();
+            return -1;
+        }
+
+        strcpy(self->context->input_string, PyString_AsString(value));
+    }
+
+    return 0;
+}
+
+static PyGetSetDef sass_context_getsetters[] = {
+    {"include_paths", 
+     (getter)sass_context_get_input_string, 
+     (setter)sass_context_set_input_string,
+     "input string", NULL},
+    {NULL}  /* Sentinel */
+};
+
+static PyTypeObject py_sass_context_type = {
+	PyObject_HEAD_INIT(NULL)
+	0,                              /*ob_size*/
+	"sass.context",                 /*tp_name*/
+	sizeof(py_sass_context_type),   /*tp_basicsize*/
+	0,                              /*tp_itemsize*/
+	/* methods */    
+	(destructor)sass_context_dealloc, /*tp_dealloc*/
+	0,                              /*print*/
+    0,                              /*tp_getattr*/
+	0,                              /*tp_setattr*/
+	0,                              /*tp_compare*/ 
+	0,                              /*tp_repr*/
+	0,                              /*tp_as_number*/
+	0,                              /*tp_as_sequence*/
+	0,                              /*tp_as_mapping*/
+	0,                              /*tp_hash*/
+	0,                              /*tp_call*/
+	0,                              /*tp_str*/
+	PyObject_GenericGetAttr,        /*tp_getattro*/
+	PyObject_GenericSetAttr,        /*tp_setattro*/
+	0,                              /*tp_as_buffer*/
+	Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,  /*tp_flags*/
+	"sass context",  /*tp_doc*/
+    0,		                        /* tp_traverse */
+    0,		                        /* tp_clear */
+    0,		                        /* tp_richcompare */
+    0,		                        /* tp_weaklistoffset */
+    0,		                        /* tp_iter */
+    0,		                        /* tp_iternext */
+    0,                              /* tp_methods */
+    0,                              /* tp_members */
+    sass_context_getsetters,        /* tp_getset */
+    0,                              /* tp_base */
+    0,                              /* tp_dict */
+    0,                              /* tp_descr_get */
+    0,                              /* tp_descr_set */
+    0,                              /* tp_dictoffset */
+    (initproc)sass_context_init,    /* tp_init */
+    0,                              /* tp_alloc */
+    sass_context_new,               /* tp_new */
 
 };
 
 static PyObject *
 sass_compile_string(PyObject *self, PyObject *args)
 {
-
-    char *input;
-    static struct sass_context *ctx;
+    PyObject *input;
+    PyObject *options;
+    struct sass_context *ctx;
+    struct sass_context *local_ctx = NULL;
     int retval;
+    PyObject *rc = NULL;
 
-    if (!PyArg_ParseTuple(args, "s", &input))
+    if (!PyArg_ParseTuple(args, "O|O", &input, &options))
         return NULL;
 
-    ctx = sass_new_context();
-    ctx->input_string = input;
-    ctx->options.include_paths = "";
-    ctx->options.output_style = 0;
-    retval = sass_compile(ctx);
-    if (ctx->error_status) {
-      return NULL;
-    } else {
-      return Py_BuildValue("s", ctx->output_string);  
+    if (PyString_Check(input)) {
+        // Convenience: if the input is a string, create a context on demand
+        local_ctx = sass_new_context();
+        memset(local_ctx, 0, sizeof(struct sass_context));
+        ctx = local_ctx;
+        ctx->input_string = PyString_AsString(input);
     }
-    
+    else {
+        if (input->ob_type != &py_sass_context_type) {
+            PyErr_SetString(PyExc_TypeError, 
+                            "argument must be a string or of type sass.context");
+            return NULL;
+        }
+        py_sass_context *py_ctx = (py_sass_context*)input;
+        ctx = py_ctx->context;
+    }
+
+    retval = sass_compile(ctx);
+
+    if (ctx->error_status) {
+        PyErr_SetString(PyExc_RuntimeError, ctx->error_message);
+    } else {
+        rc = Py_BuildValue("s", ctx->output_string);  
+    }
+
+    if (local_ctx)
+        free(local_ctx);
+
+    return rc;
 }
 
 static PyMethodDef sass_methods[] = {
@@ -214,7 +406,13 @@ initsass(void)
         return;
 
     Py_INCREF(&py_sass_options_type);
-    PyModule_AddObject(m, "options", (PyObject *)&py_sass_options_type);
+    PyModule_AddObject(m, "options", (PyObject *)&py_sass_context_type);
+
+    if (PyType_Ready(&py_sass_context_type) < 0)
+        return;
+
+    Py_INCREF(&py_sass_context_type);
+    PyModule_AddObject(m, "context", (PyObject *)&py_sass_context_type);
 
     _EXPORT_INT(m, "SASS_STYLE_NESTED", SASS_STYLE_NESTED);
     _EXPORT_INT(m, "SASS_STYLE_EXPANDED", SASS_STYLE_EXPANDED);
