@@ -28,8 +28,8 @@ sass_compile_string(PyObject *self, PyObject *args)
 
 static PyMethodDef SassMethods[] = {
     
-    {"sass_compile",  sass_compile_string, METH_VARARGS,
-     "compile from a sass context"},
+    {"compile_string",  sass_compile_string, METH_VARARGS,
+     "compile from string"},
     {NULL, NULL, 0, NULL}        /* Sentinel */
 };
 

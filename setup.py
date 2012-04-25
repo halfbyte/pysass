@@ -13,6 +13,9 @@ sass = Extension('sass',
                       'libsass/node_comparisons.cpp',
                       'libsass/values.cpp',
                       'libsass/prelexer.cpp'
+                    ],
+                    extra_compile_args = [
+                      "-Wno-strict-prototypes", "-Wno-sign-compare", "-Wno-switch", "-Wno-shorten-64-to-32", "-Wno-unused-variable"
                     ]
 )
 
