@@ -180,7 +180,7 @@ static PyMethodDef sass_methods[] = {
     {NULL, NULL, 0, NULL}        /* Sentinel */
 };
 
-#define _EXPORT_INT(mod, name, value)                                   \
+#define _EXPORT_INT(mod, name, value)  \
     if (PyModule_AddIntConstant(mod, name, (long) value) == -1) return;
 
 #if PY_MAJOR_VERSION >= 3
@@ -205,7 +205,7 @@ initsass(void)
 #if PY_MAJOR_VERSION < 3
     m = Py_InitModule3("sass", sass_methods, sass_module_doc);
 #else
-    m = PyModule_Create(&alsaaudio_module);
+    m = PyModule_Create(&sass_module);
 #endif
     if (!m) 
         return;
@@ -216,4 +216,9 @@ initsass(void)
 
     Py_INCREF(&py_sass_options_type);
     PyModule_AddObject(m, "options", (PyObject *)&py_sass_options_type);
+
+    _EXPORT_INT(m, "SASS_STYLE_NESTED", SASS_STYLE_NESTED);
+    _EXPORT_INT(m, "SASS_STYLE_EXPANDED", SASS_STYLE_EXPANDED);
+    _EXPORT_INT(m, "SASS_STYLE_COMPACT", SASS_STYLE_COMPACT);
+    _EXPORT_INT(m, "SASS_STYLE_COMPRESSED", SASS_STYLE_COMPRESSED);
 }
